@@ -1,0 +1,218 @@
+import asyncHandler from '../utils/asyncHandler.js';
+import ApiResponse from '../utils/ApiResponse.js';
+import AuditLog from '../models/auditLogModel.js';
+
+// @desc    Get all Audit Logs
+// @route   GET /api/audit-logs
+// @access  Private (Super Admin)
+export const getAllAuditLogs = asyncHandler(async (req, res) => {
+  const { 
+    page = 1, 
+    limit = 50, 
+    action, 
+    resource,
+    category,
+    user, 
+    severity, 
+    search,
+    startDate, 
+    endDate 
+  } = req.query;
+
+  // Build query
+  const query = {};
+
+  if (action) {
+    query.action = action;
+  }
+
+  if (resource) {
+    query.resource = { $regex: resource, $options: 'i' };
+  }
+
+  if (category) {
+    query.category = category;
+  }
+
+  if (user) {
+    query.user = { $regex: user, $options: 'i' };
+  }
+
+  if (severity) {
+    query.severity = severity;
+  }
+
+  if (search) {
+    query.$or = [
+      { description: { $regex: search, $options: 'i' } },
+      { user: { $regex: search, $options: 'i' } },
+      { resource: { $regex: search, $options: 'i' } }
+    ];
+  }
+
+  // Date range filter
+  if (startDate || endDate) {
+    query.createdAt = {};
+    if (startDate) {
+      query.createdAt.$gte = new Date(startDate);
+    }
+    if (endDate) {
+      query.createdAt.$lte = new Date(endDate);
+    }
+  }
+
+  // Execute query with pagination
+  const skip = (page - 1) * limit;
+  const logs = await AuditLog.find(query)
+    .sort({ createdAt: -1 })
+    .limit(parseInt(limit))
+    .skip(skip);
+
+  const total = await AuditLog.countDocuments(query);
+
+  ApiResponse.success(res, {
+    logs,
+    pagination: {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total,
+      pages: Math.ceil(total / parseInt(limit))
+    }
+  }, 'Audit logs fetched successfully');
+});
+
+// @desc    Get Audit Log by ID
+// @route   GET /api/audit-logs/:id
+// @access  Private (Super Admin)
+export const getAuditLogById = asyncHandler(async (req, res) => {
+  const log = await AuditLog.findById(req.params.id);
+
+  if (!log) {
+    return ApiResponse.error(res, 'Audit log not found', 404);
+  }
+
+  ApiResponse.success(res, log, 'Audit log fetched successfully');
+});
+
+// @desc    Create Audit Log
+// @route   POST /api/audit-logs
+// @access  Private
+export const createAuditLog = asyncHandler(async (req, res) => {
+  const {
+    action,
+    resource,
+    resourceId,
+    performedBy,
+    details,
+    ipAddress,
+    userAgent,
+    severity
+  } = req.body;
+
+  // Create audit log
+  const log = await AuditLog.create({
+    action,
+    resource,
+    resourceId,
+    performedBy: performedBy || req.user?.email || 'System',
+    details,
+    ipAddress: ipAddress || req.ip,
+    userAgent: userAgent || req.get('user-agent'),
+    severity: severity || 'info',
+    timestamp: new Date()
+  });
+
+  ApiResponse.success(res, log, 'Audit log created successfully', 201);
+});
+
+// @desc    Get Audit Logs by Resource
+// @route   GET /api/audit-logs/resource/:resourceId
+// @access  Private (Super Admin)
+export const getAuditLogsByResource = asyncHandler(async (req, res) => {
+  const logs = await AuditLog.find({ resourceId: req.params.resourceId })
+    .sort({ timestamp: -1 });
+
+  ApiResponse.success(res, logs, 'Resource audit logs fetched successfully');
+});
+
+// @desc    Get Audit Logs by User
+// @route   GET /api/audit-logs/user/:userId
+// @access  Private (Super Admin)
+export const getAuditLogsByUser = asyncHandler(async (req, res) => {
+  const logs = await AuditLog.find({ performedBy: req.params.userId })
+    .sort({ timestamp: -1 });
+
+  ApiResponse.success(res, logs, 'User audit logs fetched successfully');
+});
+
+// @desc    Delete Audit Log
+// @route   DELETE /api/audit-logs/:id
+// @access  Private (Super Admin)
+export const deleteAuditLog = asyncHandler(async (req, res) => {
+  const log = await AuditLog.findByIdAndDelete(req.params.id);
+
+  if (!log) {
+    return ApiResponse.error(res, 'Audit log not found', 404);
+  }
+
+  ApiResponse.success(res, null, 'Audit log deleted successfully');
+});
+
+// @desc    Clear Old Audit Logs
+// @route   DELETE /api/audit-logs/cleanup/:days
+// @access  Private (Super Admin)
+export const clearOldLogs = asyncHandler(async (req, res) => {
+  const { days } = req.params;
+  const daysAgo = new Date();
+  daysAgo.setDate(daysAgo.getDate() - parseInt(days));
+
+  const result = await AuditLog.deleteMany({
+    timestamp: { $lt: daysAgo }
+  });
+
+  ApiResponse.success(res, {
+    deletedCount: result.deletedCount
+  }, `Audit logs older than ${days} days deleted successfully`);
+});
+
+// @desc    Get Audit Log Statistics
+// @route   GET /api/audit-logs/stats/summary
+// @access  Private (Super Admin)
+export const getAuditLogStats = asyncHandler(async (req, res) => {
+  // Total logs
+  const totalLogs = await AuditLog.countDocuments();
+
+  // Logs by severity
+  const severityCounts = await AuditLog.aggregate([
+    { $group: { _id: '$severity', count: { $sum: 1 } } }
+  ]);
+
+  // Logs by action
+  const actionCounts = await AuditLog.aggregate([
+    { $group: { _id: '$action', count: { $sum: 1 } } },
+    { $sort: { count: -1 } },
+    { $limit: 10 }
+  ]);
+
+  // Logs by resource
+  const resourceCounts = await AuditLog.aggregate([
+    { $group: { _id: '$resource', count: { $sum: 1 } } },
+    { $sort: { count: -1 } },
+    { $limit: 10 }
+  ]);
+
+  // Recent activity (last 24 hours)
+  const oneDayAgo = new Date();
+  oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+  const recentActivity = await AuditLog.countDocuments({
+    timestamp: { $gte: oneDayAgo }
+  });
+
+  ApiResponse.success(res, {
+    totalLogs,
+    severityCounts,
+    actionCounts,
+    resourceCounts,
+    recentActivity
+  }, 'Audit log statistics fetched successfully');
+});
