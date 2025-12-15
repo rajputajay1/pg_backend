@@ -9,7 +9,7 @@ const auditLogSchema = new mongoose.Schema(
     },
     userRole: {
       type: String,
-      enum: ['Super Admin', 'Admin', 'Owner', 'System'],
+      enum: ['Super Admin', 'PG Owner', 'Staff', 'System'],
       required: [true, 'User role is required']
     },
     action: {
@@ -55,7 +55,8 @@ const auditLogSchema = new mongoose.Schema(
         'financial',
         'authentication',
         'security',
-        'system'
+        'system',
+        'registration'
       ],
       required: [true, 'Category is required']
     },

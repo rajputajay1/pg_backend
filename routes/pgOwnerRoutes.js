@@ -8,7 +8,8 @@ import {
   getPgOwnerById,
   updatePgOwner,
   deletePgOwner,
-  toggleOwnerStatus
+  toggleOwnerStatus,
+  getDashboardStats
 } from '../controllers/pgOwnerController.js';
 import auth from '../middleware/auth.js';
 
@@ -28,6 +29,9 @@ router.post('/login', login);
 
 // Get all PG Owners
 router.get('/', auth, getAllPgOwners);
+
+// Get Dashboard Stats
+router.get('/stats/dashboard', auth, getDashboardStats);
 
 // Get PG Owner by ID
 router.get('/:id', auth, getPgOwnerById);

@@ -146,7 +146,7 @@ export const completeRegistration = asyncHandler(async (req, res) => {
   } = registrationData;
 
   // Validate required fields
-  if (!name || !email || !phone || !pgName || !planId) {
+  if (!name || !email || !phone || !planId) {
     return ApiResponse.error(res, 'Incomplete registration data', 400);
   }
 
@@ -194,7 +194,7 @@ export const completeRegistration = asyncHandler(async (req, res) => {
   }
 
   // Generate website URL
-  const websiteUrl = process.env.OWNER_FRONTEND_URL || 'http://localhost:5174';
+  const websiteUrl = process.env.OWNER_FRONTEND_URL || 'http://localhost:8081';
 
   // Create PG Owner
   const owner = await PgOwner.create({
@@ -224,6 +224,9 @@ export const completeRegistration = asyncHandler(async (req, res) => {
 
   // Send welcome email with credentials
   let emailSent = false;
+  console.log('📧 Attempting to send welcome email...');
+  console.log('📧 Email data:', { to: email, name, planName: plan.name, planPrice: plan.price });
+  
   try {
     const emailResult = await sendWelcomeEmail({
       to: email,
@@ -236,18 +239,20 @@ export const completeRegistration = asyncHandler(async (req, res) => {
     });
     emailSent = emailResult.success;
     
+    console.log('📧 Email result:', emailResult);
+    
     if (emailSent) {
       console.log(`✅ Welcome email sent to ${email}`);
     } else {
       console.error(`❌ Failed to send welcome email to ${email}:`, emailResult.message);
     }
   } catch (emailError) {
-    console.error('Email sending error:', emailError);
+    console.error('❌ Email sending error (caught exception):', emailError);
   }
 
   // Create audit log
   await AuditLog.create({
-    user: owner._id,
+    user: owner.name,
     userRole: 'PG Owner',
     action: 'CREATE',
     resource: 'PgOwner',
@@ -261,7 +266,7 @@ export const completeRegistration = asyncHandler(async (req, res) => {
       planPrice: plan.price,
       planPeriod: plan.period,
       paymentStatus: 'completed',
-      razorpayPaymentId,
+      razorpayPaymentId: razorpay_payment_id,
       razorpayOrderId: razorpay_order_id,
       emailSent
     }
@@ -272,7 +277,11 @@ export const completeRegistration = asyncHandler(async (req, res) => {
   delete ownerData.password;
 
   ApiResponse.success(res, {
-    owner: ownerData,
+    owner: {
+      ...ownerData,
+      password: generatedPassword, // Send plain password for display (one-time only)
+      websiteUrl: websiteUrl
+    },
     emailSent,
     message: emailSent 
       ? 'Registration successful! Login credentials have been sent to your email.'
@@ -487,4 +496,116 @@ export const toggleOwnerStatus = asyncHandler(async (req, res) => {
   }
 
   ApiResponse.success(res, owner, `PG Owner ${isActive ? 'activated' : 'deactivated'} successfully`);
+});
+
+// @desc    Get Dashboard Statistics
+// @route   GET /api/pg-owners/stats/dashboard
+// @access  Private (Super Admin)
+export const getDashboardStats = asyncHandler(async (req, res) => {
+  // 1. Basic Counts
+  const totalOwners = await PgOwner.countDocuments();
+  const activeOwners = await PgOwner.countDocuments({ isActive: true });
+  
+  // 2. Active Properties (Aggregation)
+  const propertiesResult = await PgOwner.aggregate([
+    {
+      $group: {
+        _id: null,
+        totalConfiguredResults: { $sum: "$noOfPgs" }
+      }
+    }
+  ]);
+  const totalProperties = propertiesResult.length > 0 ? propertiesResult[0].totalConfiguredResults : 0;
+
+  // 3. Financial Stats (Pending Payments)
+  const pendingPaymentsResult = await PgOwner.aggregate([
+    { $match: { paymentStatus: 'pending' } },
+    {
+      $group: {
+        _id: null,
+        totalPendingAmount: { $sum: "$planPrice" } 
+      }
+    }
+  ]);
+  const pendingAmount = pendingPaymentsResult.length > 0 ? pendingPaymentsResult[0].totalPendingAmount : 0;
+
+  // 4. Revenue Over Time (Last 6 months)
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  
+  const revenueDataRaw = await PgOwner.aggregate([
+    { 
+      $match: { 
+        paymentStatus: 'completed',
+        paymentDate: { $gte: sixMonthsAgo } 
+      } 
+    },
+    {
+      $group: {
+        _id: { 
+          month: { $month: "$paymentDate" }, 
+          year: { $year: "$paymentDate" } 
+        },
+        revenue: { $sum: "$planPrice" }
+      }
+    },
+    { $sort: { "_id.year": 1, "_id.month": 1 } }
+  ]);
+  
+  // Format revenue data for recharts
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const revenueData = revenueDataRaw.map(item => ({
+    name: `${months[item._id.month - 1]} ${item._id.year}`,
+    revenue: item.revenue,
+    expenses: Math.round(item.revenue * 0.3) // Simulated expenses
+  }));
+
+  // 5. Recent Registrations
+  const recentRegistrations = await PgOwner.find()
+    .select('name email createdAt isActive paymentStatus planName')
+    .sort({ createdAt: -1 })
+    .limit(5);
+
+  // 6. Pending Payments List
+  const pendingPaymentsList = await PgOwner.find({ paymentStatus: 'pending' })
+    .select('name planPrice createdAt planName')
+    .sort({ createdAt: 1 })
+    .limit(5);
+
+  // 7. Plan Distribution
+  const planDistributionRaw = await PgOwner.aggregate([
+    {
+      $group: {
+        _id: "$planName",
+        value: { $sum: 1 }
+      }
+    }
+  ]);
+  
+  const occupancyData = planDistributionRaw.map(item => ({
+    name: item._id || 'Unknown',
+    value: item.value
+  }));
+
+  // 8. Owner Performance (Top 5 by Revenue - simulated by plan price for now)
+  const ownerPerformanceData = await PgOwner.find({ paymentStatus: 'completed' })
+    .sort({ planPrice: -1 })
+    .limit(5)
+    .select('name planPrice')
+    .then(owners => owners.map(o => ({ name: o.name, value: o.planPrice })));
+
+  const stats = {
+    totalOwners,
+    totalProperties,
+    activeOwners,
+    occupancyRate: totalOwners > 0 ? Math.round((activeOwners / totalOwners) * 1000) / 10 : 0,
+    pendingAmount,
+    revenueData,
+    recentRegistrations,
+    pendingPaymentsList,
+    occupancyData,
+    ownerPerformanceData
+  };
+
+  ApiResponse.success(res, stats, 'Dashboard statistics fetched successfully');
 });

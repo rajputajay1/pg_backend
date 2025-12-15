@@ -44,6 +44,12 @@ const planSchema = new mongoose.Schema(
         message: 'At least one module must be allowed',
       },
     },
+    maxProperties: {
+      type: Number,
+      required: [true, 'Maximum properties limit is required'],
+      min: [1, 'Maximum properties must be at least 1'],
+      default: 1,
+    },
     isActive: {
       type: Boolean,
       default: true,

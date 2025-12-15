@@ -31,7 +31,6 @@ const pgOwnerSchema = new mongoose.Schema(
     },
     pgName: {
       type: String,
-      required: [true, 'PG name is required'],
       trim: true
     },
     pgAddress: {
