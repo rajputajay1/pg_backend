@@ -1,5 +1,8 @@
 import dotenv from 'dotenv';
+import dns from 'dns';
 import express from 'express';
+
+dns.setDefaultResultOrder('ipv4first');
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -16,7 +19,7 @@ connectDB();
 app.use(helmet());
 
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:8080',
+  origin: ['http://localhost:8081', 'http://localhost:8080'],
   credentials: true
 }));
 
@@ -45,7 +48,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 7000;
+const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);

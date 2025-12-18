@@ -5,21 +5,20 @@ export const MODULES = {
   DASHBOARD: 'dashboard',
   ROOMS: 'rooms',
   TENANTS: 'tenants',
+  STUDENTS: 'students',
   STAFF: 'staff',
   FINANCE: 'finance',
-  PAYMENTS: 'payments',
-  EXPENSES: 'expenses',
   COMPLAINTS: 'complaints',
-  NOTICES: 'notices',
+  NOTICES: 'notices', 
   MEALS: 'meals',
   CLEANING: 'cleaning',
   INVENTORY: 'inventory',
   FURNITURE: 'furniture',
   UTILITIES: 'utilities',
-  SECURITY_DEPOSITS: 'security_deposits',
   REPORTS: 'reports',
   SETTINGS: 'settings',
   CHAT: 'chat',
+  
 };
 
 // Module metadata with display names and descriptions
@@ -39,6 +38,11 @@ export const MODULE_INFO = {
     description: 'Manage tenant information',
     category: 'core',
   },
+  [MODULES.STUDENTS]: {
+    name: 'Student Management',
+    description: 'Manage student information',
+    category: 'core',
+  },
   [MODULES.STAFF]: {
     name: 'Staff Management',
     description: 'Manage staff and roles',
@@ -46,19 +50,11 @@ export const MODULE_INFO = {
   },
   [MODULES.FINANCE]: {
     name: 'Finance',
-    description: 'Financial overview and reports',
+    description: 'Complete financial management including Payments, Expenses, and Security Deposits',
     category: 'finance',
   },
-  [MODULES.PAYMENTS]: {
-    name: 'Payments',
-    description: 'Track rent and payments',
-    category: 'finance',
-  },
-  [MODULES.EXPENSES]: {
-    name: 'Expenses',
-    description: 'Manage expenses and bills',
-    category: 'finance',
-  },
+  // [MODULES.PAYMENTS]: { ... }, // Moved under Finance
+  // [MODULES.EXPENSES]: { ... }, // Moved under Finance
   [MODULES.COMPLAINTS]: {
     name: 'Complaints',
     description: 'Handle tenant complaints',
@@ -94,11 +90,11 @@ export const MODULE_INFO = {
     description: 'Track utility bills and usage',
     category: 'finance',
   },
-  [MODULES.SECURITY_DEPOSITS]: {
+  /* [MODULES.SECURITY_DEPOSITS]: {
     name: 'Security Deposits',
     description: 'Manage security deposits',
     category: 'finance',
-  },
+  }, */
   [MODULES.REPORTS]: {
     name: 'Reports',
     description: 'Generate various reports',
@@ -116,38 +112,9 @@ export const MODULE_INFO = {
   },
 };
 
-// Predefined plan templates
-export const PLAN_TEMPLATES = {
-  BASIC: {
-    name: 'Basic Plan (₹599)',
-    modules: [
-      MODULES.DASHBOARD,
-      MODULES.ROOMS,
-      MODULES.TENANTS,
-      MODULES.PAYMENTS,
-      MODULES.SETTINGS,
-    ],
-  },
-  STANDARD: {
-    name: 'Standard Plan (₹999)',
-    modules: [
-      MODULES.DASHBOARD,
-      MODULES.ROOMS,
-      MODULES.TENANTS,
-      MODULES.STAFF,
-      MODULES.FINANCE,
-      MODULES.PAYMENTS,
-      MODULES.EXPENSES,
-      MODULES.COMPLAINTS,
-      MODULES.NOTICES,
-      MODULES.SETTINGS,
-    ],
-  },
-  PREMIUM: {
-    name: 'Premium Plan (₹2599)',
-    modules: Object.values(MODULES), // All modules
-  },
-};
+// Predefined plan templates - REMOVED
+// Plans are now fully dynamic and managed via Admin Panel
+export const PLAN_TEMPLATES = {};
 
 // Helper function to validate module names
 export const isValidModule = (moduleName) => {

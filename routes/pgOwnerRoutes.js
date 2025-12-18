@@ -4,6 +4,7 @@ import {
   completeRegistration,
   checkEmailAvailability,
   login,
+  changePassword,
   getAllPgOwners,
   getPgOwnerById,
   updatePgOwner,
@@ -24,6 +25,11 @@ router.post('/check-email', checkEmailAvailability);
 
 // PG Owner Login
 router.post('/login', login);
+
+// ==================== PG OWNER PROTECTED ROUTES ====================
+
+// Change Password (Protected)
+router.post('/change-password', auth, changePassword);
 
 // ==================== SUPER ADMIN ROUTES (Protected) ====================
 

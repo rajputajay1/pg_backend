@@ -105,6 +105,11 @@ const pgOwnerSchema = new mongoose.Schema(
       type: Boolean,
       default: true
     },
+    isPasswordChange: {
+      type: Boolean,
+      default: false,
+      required: true
+    },
     notes: {
       type: String,
       trim: true,

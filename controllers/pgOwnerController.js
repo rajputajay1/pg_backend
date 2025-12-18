@@ -348,14 +348,15 @@ export const login = asyncHandler(async (req, res) => {
   // Get allowed modules from plan
   const allowedModules = owner.planId?.allowedModules || [];
 
-  // Generate token with plan modules
+  // Generate token with plan modules and password change status
   const token = jwt.sign(
     { 
       id: owner._id, 
       email: owner.email, 
       role: 'pg_owner',
       planId: owner.planId?._id,
-      allowedModules
+      allowedModules,
+      isPasswordChange: owner.isPasswordChange
     },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRE || '7d' }
@@ -373,9 +374,70 @@ export const login = asyncHandler(async (req, res) => {
       role: 'pg_owner',
       name: ownerData.name,
       ...ownerData,
-      allowedModules // Include allowed modules in response
+      allowedModules, // Include allowed modules in response
+      isPasswordChange: ownerData.isPasswordChange // Include password change status
     }
   }, 'Login successful');
+});
+
+// @desc    Change Password
+// @route   POST /api/pg-owners/change-password
+// @access  Private (PG Owner)
+export const changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  // Validation
+  if (!currentPassword || !newPassword) {
+    return ApiResponse.error(res, 'Please provide current and new password', 400);
+  }
+
+  if (newPassword.length < 6) {
+    return ApiResponse.error(res, 'New password must be at least 6 characters', 400);
+  }
+
+  // Find user with password field
+  const owner = await PgOwner.findById(req.user.id).select('+password');
+
+  if (!owner) {
+    return ApiResponse.error(res, 'User not found', 404);
+  }
+
+  // Verify current password
+  const isPasswordValid = await bcrypt.compare(currentPassword, owner.password);
+
+  if (!isPasswordValid) {
+    return ApiResponse.error(res, 'Current password is incorrect', 401);
+  }
+
+  // Hash new password
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+  // Update password and set isPasswordChange to true
+  owner.password = hashedPassword;
+  owner.isPasswordChange = true;
+  await owner.save();
+
+  // Create audit log
+  await AuditLog.create({
+    user: owner.name,
+    userRole: 'PG Owner',
+    action: 'UPDATE',
+    resource: 'PgOwner',
+    resourceId: owner._id.toString(),
+    description: `Password changed for: ${owner.name} (${owner.email})`,
+    category: 'security',
+    severity: 'info',
+    metadata: {
+      email: owner.email,
+      isPasswordChange: true
+    }
+  });
+
+  ApiResponse.success(res, {
+    message: 'Password changed successfully',
+    isPasswordChange: true
+  }, 'Password updated successfully');
 });
 
 // ==================== SUPER ADMIN - PG OWNER MANAGEMENT ====================
