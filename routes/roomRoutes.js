@@ -5,6 +5,8 @@ import auth from '../middleware/auth.js';
 const router = express.Router();
 
 router.get('/', auth, roomController.getAllRooms);
+router.get('/stats', auth, roomController.getRoomStats); // Place before /:id
+router.post('/bulk', auth, roomController.bulkCreateRooms);
 router.get('/property/:propertyId', auth, roomController.getRoomsByProperty);
 router.get('/available/:propertyId', auth, roomController.getAvailableRooms);
 router.get('/:id', auth, roomController.getRoomById);

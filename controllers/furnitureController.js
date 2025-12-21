@@ -18,6 +18,7 @@ export const getAllFurniture = asyncHandler(async (req, res) => {
   const furniture = await Furniture.find(query)
     .populate('property', 'name')
     .populate('room', 'roomNumber')
+    .populate('assignedTo', 'name')
     .sort({ createdAt: -1 })
     .limit(parseInt(limit))
     .skip(skip);
@@ -30,7 +31,7 @@ export const getAllFurniture = asyncHandler(async (req, res) => {
 // @route   GET /api/furniture/:id
 // @access  Private
 export const getFurnitureById = asyncHandler(async (req, res) => {
-  const furniture = await Furniture.findById(req.params.id).populate('property room');
+  const furniture = await Furniture.findById(req.params.id).populate('property room assignedTo');
   if (!furniture) return ApiResponse.error(res, 'Furniture not found', 404);
   ApiResponse.success(res, furniture, 'Furniture fetched successfully');
 });
@@ -40,7 +41,7 @@ export const getFurnitureById = asyncHandler(async (req, res) => {
 // @access  Private
 export const createFurniture = asyncHandler(async (req, res) => {
   const furniture = await Furniture.create(req.body);
-  await furniture.populate('property room');
+  await furniture.populate('property room assignedTo');
   ApiResponse.success(res, furniture, 'Furniture created successfully', 201);
 });
 
@@ -48,8 +49,10 @@ export const createFurniture = asyncHandler(async (req, res) => {
 // @route   PUT /api/furniture/:id
 // @access  Private
 export const updateFurniture = asyncHandler(async (req, res) => {
-  const furniture = await Furniture.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+  let furniture = await Furniture.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
   if (!furniture) return ApiResponse.error(res, 'Furniture not found', 404);
+  
+  furniture = await furniture.populate('property room assignedTo');
   ApiResponse.success(res, furniture, 'Furniture updated successfully');
 });
 

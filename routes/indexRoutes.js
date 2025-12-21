@@ -21,6 +21,7 @@ import securityDepositRoutes from './securityDepositRoutes.js';
 import utilityRoutes from './utilityRoutes.js';
 import settingsRoutes from './settingsRoutes.js';
 import razorpayRoutes from './razorpayRoutes.js';
+import financeRoutes from './financeRoutes.js';
 
 const router = express.Router();
 
@@ -40,6 +41,7 @@ router.use('/transactions', transactionRoutes);
 router.use('/audit-logs', auditLogRoutes);
 router.use('/plans', planRoutes);
 router.use('/tenants', tenantRoutes);
+router.use('/students', tenantRoutes); // Alias for frontend consistency
 router.use('/staff', staffRoutes);
 router.use('/rooms', roomRoutes);
 router.use('/furniture', furnitureRoutes);
@@ -55,5 +57,6 @@ router.use('/security-deposits', securityDepositRoutes);
 router.use('/utilities', utilityRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/razorpay', razorpayRoutes);
+router.use('/finance', financeRoutes);
 
 export default router;

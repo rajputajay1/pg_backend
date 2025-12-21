@@ -58,11 +58,20 @@ export const getStaffById = asyncHandler(async (req, res) => {
 // @route   POST /api/staff
 // @access  Private
 export const createStaff = asyncHandler(async (req, res) => {
-  const { password, ...staffData } = req.body;
+  let { password, ...staffData } = req.body;
+
+  // If password is not provided, use phone number as default or fallback
+  if (!password) {
+    if (staffData.phone) {
+      password = staffData.phone;
+    } else {
+      password = 'password123';
+    }
+  }
 
   // Hash password
   const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash(password, salt);
+  const hashedPassword = await bcrypt.hash(String(password), salt);
 
   const staff = await Staff.create({
     ...staffData,

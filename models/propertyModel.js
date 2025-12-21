@@ -34,7 +34,6 @@ const propertySchema = new mongoose.Schema(
     },
     planName: {
       type: String,
-      enum: ['Starter', 'Professional', 'Enterprise'],
       required: [true, 'Plan name is required']
     },
     planPrice: {

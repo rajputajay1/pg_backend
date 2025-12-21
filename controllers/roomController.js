@@ -2,6 +2,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import Room from '../models/roomModel.js';
 import Property from '../models/propertyModel.js';
+import mongoose from 'mongoose';
 
 // @desc    Get all Rooms
 // @route   GET /api/rooms
@@ -54,6 +55,20 @@ export const getRoomById = asyncHandler(async (req, res) => {
 // @route   POST /api/rooms
 // @access  Private
 export const createRoom = asyncHandler(async (req, res) => {
+  const { property, roomNumber } = req.body;
+
+  // Check if property exists
+  const propertyExists = await Property.findById(property);
+  if (!propertyExists) {
+    return ApiResponse.error(res, 'Property not found. Please create a property first.', 404);
+  }
+
+  // Check if room number already exists for this property
+  const roomExists = await Room.findOne({ property, roomNumber });
+  if (roomExists) {
+    return ApiResponse.error(res, 'Room number already exists in this property', 400);
+  }
+
   const room = await Room.create(req.body);
 
   await room.populate([
@@ -62,7 +77,7 @@ export const createRoom = asyncHandler(async (req, res) => {
   ]);
 
   // Update property total rooms
-  await Property.findByIdAndUpdate(req.body.property, { $inc: { totalRooms: 1 } });
+  await Property.findByIdAndUpdate(property, { $inc: { totalRooms: 1 } });
 
   ApiResponse.success(res, room, 'Room created successfully', 201);
 });
@@ -144,4 +159,99 @@ export const getAvailableRooms = asyncHandler(async (req, res) => {
   }).sort({ roomNumber: 1 });
 
   ApiResponse.success(res, rooms, 'Available rooms fetched successfully');
+});
+
+// @desc    Get Room Statistics
+// @route   GET /api/rooms/stats
+// @access  Private
+export const getRoomStats = asyncHandler(async (req, res) => {
+  const { propertyId } = req.query;
+  const matchStage = {};
+  
+  if (propertyId) {
+    matchStage.property = new mongoose.Types.ObjectId(propertyId);
+  }
+
+  const stats = await Room.aggregate([
+    { $match: matchStage },
+    {
+      $group: {
+        _id: '$roomType',
+        total_rooms: { $sum: 1 },
+        occupied_rooms: { 
+          $sum: { 
+            $cond: [{ $eq: ['$status', 'Occupied'] }, 1, 0] 
+          } 
+        },
+        available_rooms: { 
+          $sum: { 
+            $cond: [{ $eq: ['$status', 'Available'] }, 1, 0] 
+          } 
+        },
+        maintenance_rooms: { 
+          $sum: { 
+            $cond: [{ $eq: ['$status', 'Maintenance'] }, 1, 0] 
+          } 
+        },
+        total_capacity: { $sum: '$capacity' },
+        current_occupancy: { $sum: '$currentOccupancy' }
+      }
+    },
+    {
+      $project: {
+        room_type: '$_id',
+        total_rooms: 1,
+        occupied_rooms: 1,
+        available_rooms: 1,
+        maintenance_rooms: 1,
+        occupancy_percentage: {
+          $cond: [
+            { $eq: ['$total_rooms', 0] },
+            0,
+            { $multiply: [{ $divide: ['$occupied_rooms', '$total_rooms'] }, 100] }
+          ]
+        }
+      }
+    }
+  ]);
+
+  ApiResponse.success(res, stats, 'Room statistics fetched successfully');
+});
+
+// @desc    Bulk Create Rooms
+// @route   POST /api/rooms/bulk
+// @access  Private
+export const bulkCreateRooms = asyncHandler(async (req, res) => {
+  const { rooms, propertyId } = req.body;
+
+  if (!Array.isArray(rooms) || rooms.length === 0) {
+    return ApiResponse.error(res, 'Invalid rooms data', 400);
+  }
+
+  // Validate property exists
+  const property = await Property.findById(propertyId);
+  if (!property) {
+    return ApiResponse.error(res, 'Property not found', 404);
+  }
+
+  const ownerId = req.user._id || req.user.id;
+  if (!ownerId) {
+     return ApiResponse.error(res, 'Owner not authenticated', 401);
+  }
+
+  const processedRooms = rooms.map(room => ({
+    ...room,
+    property: propertyId,
+    owner: ownerId,
+    currentOccupancy: 0
+  }));
+
+  const createdRooms = await Room.insertMany(processedRooms);
+  
+  // Update total rooms count in property
+  await Property.findByIdAndUpdate(propertyId, { 
+    $inc: { totalRooms: createdRooms.length } 
+  });
+
+  ApiResponse.success(res, createdRooms, `${createdRooms.length} rooms created successfully`, 201);
 });

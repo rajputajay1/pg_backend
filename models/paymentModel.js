@@ -7,24 +7,37 @@ const paymentSchema = new mongoose.Schema(
       ref: 'PgOwner',
       required: [true, 'Owner reference is required']
     },
+    tenant: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Tenant'
+    },
+    property: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Property'
+    },
+    paymentDate: {
+      type: Date,
+      default: Date.now
+    },
+    category: {
+      type: String,
+      enum: ['Rent', 'Security Deposit', 'Utility', 'Maintenance', 'Food', 'Subscription', 'Other'],
+      default: 'Rent'
+    },
     ownerName: {
       type: String,
-      required: [true, 'Owner name is required'],
       trim: true
     },
     ownerEmail: {
       type: String,
-      required: [true, 'Owner email is required'],
       trim: true
     },
     ownerPhone: {
       type: String,
-      required: [true, 'Owner phone is required'],
       trim: true
     },
     propertyName: {
       type: String,
-      required: [true, 'Property name is required'],
       trim: true
     },
     amount: {
@@ -33,8 +46,7 @@ const paymentSchema = new mongoose.Schema(
       min: [0, 'Amount cannot be negative']
     },
     dueDate: {
-      type: Date,
-      required: [true, 'Due date is required']
+      type: Date
     },
     paidDate: {
       type: Date
@@ -69,8 +81,7 @@ const paymentSchema = new mongoose.Schema(
     },
     planName: {
       type: String,
-      enum: ['Starter', 'Professional', 'Enterprise'],
-      required: [true, 'Plan name is required']
+      enum: ['Starter', 'Professional', 'Enterprise']
     },
     description: {
       type: String,
@@ -89,6 +100,8 @@ const paymentSchema = new mongoose.Schema(
 
 // Indexes
 paymentSchema.index({ owner: 1 });
+paymentSchema.index({ tenant: 1 });
+paymentSchema.index({ property: 1 });
 paymentSchema.index({ status: 1 });
 paymentSchema.index({ dueDate: 1 });
 paymentSchema.index({ transactionId: 1 });
@@ -96,7 +109,7 @@ paymentSchema.index({ razorpayPaymentId: 1 });
 
 // Virtual for days overdue
 paymentSchema.virtual('daysOverdue').get(function() {
-  if (this.status !== 'overdue') return 0;
+  if (this.status !== 'overdue' || !this.dueDate) return 0;
   const today = new Date();
   const due = new Date(this.dueDate);
   const diffTime = Math.abs(today - due);

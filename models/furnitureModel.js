@@ -16,6 +16,10 @@ const furnitureSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Room'
     },
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Student'
+    },
     name: {
       type: String,
       required: [true, 'Furniture name is required'],

@@ -7,6 +7,11 @@ const expenseSchema = new mongoose.Schema(
       ref: 'Property',
       required: [true, 'Property reference is required']
     },
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'PgOwner',
+      required: [true, 'Owner reference is required']
+    },
     category: {
       type: String,
       enum: ['Groceries', 'Electricity Bill', 'Water Bill', 'Gas Bill', 'Internet Bill', 'Staff Salary', 'Repairs', 'Furniture', 'Maintenance', 'Cleaning Supplies', 'Other'],
@@ -36,6 +41,11 @@ const expenseSchema = new mongoose.Schema(
     billPhoto: {
       type: String,
       trim: true
+    },
+    status: {
+      type: String,
+      enum: ['paid', 'pending', 'overdue', 'failed'],
+      default: 'paid'
     },
     date: {
       type: Date,

@@ -11,5 +11,6 @@ router.post('/', auth, tenantController.createTenant);
 router.put('/:id', auth, tenantController.updateTenant);
 router.delete('/:id', auth, tenantController.deleteTenant);
 router.patch('/:id/payment-status', auth, tenantController.updatePaymentStatus);
+router.post('/bulk', auth, tenantController.bulkCreateTenants);
 
 export default router;

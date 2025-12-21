@@ -116,6 +116,22 @@ const tenantSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    depositStatus: {
+      type: String,
+      enum: ['Paid', 'Pending', 'Refunded'],
+      default: 'Pending'
+    },
+    depositDueDate: {
+      type: Date
+    },
+    fatherName: {
+      type: String,
+      trim: true
+    },
+    motherName: {
+      type: String,
+      trim: true
+    },
     joiningDate: {
       type: Date,
       required: [true, 'Joining date is required'],
@@ -215,5 +231,7 @@ tenantSchema.virtual('stayDuration').get(function() {
 });
 
 const Tenant = mongoose.model('Tenant', tenantSchema);
+// Register Student as an alias for Tenant to support legacy/frontend references
+export const Student = mongoose.model('Student', tenantSchema);
 
 export default Tenant;
