@@ -39,16 +39,12 @@ const securityDepositSchema = new mongoose.Schema(
       },
       category: {
         type: String,
-        enum: ['Furniture Damage', 'Room Damage', 'Unpaid Bills', 'Cleaning Charges', 'Lost Items', 'Other']
+        enum: ['Room Damage', 'Unpaid Bills', 'Cleaning Charges', 'Lost Items', 'Other']
       },
       amount: {
         type: Number,
         required: true,
         min: [0, 'Amount cannot be negative']
-      },
-      furnitureItem: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Furniture'
       },
       photo: String,
       date: {
@@ -96,10 +92,6 @@ const securityDepositSchema = new mongoose.Schema(
       },
       inspectionDate: Date,
       roomCondition: {
-        type: String,
-        enum: ['Excellent', 'Good', 'Fair', 'Poor']
-      },
-      furnitureCondition: {
         type: String,
         enum: ['Excellent', 'Good', 'Fair', 'Poor']
       },

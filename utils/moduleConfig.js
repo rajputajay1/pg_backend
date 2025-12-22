@@ -13,7 +13,6 @@ export const MODULES = {
   MEALS: 'meals',
   CLEANING: 'cleaning',
   INVENTORY: 'inventory',
-  FURNITURE: 'furniture',
   UTILITIES: 'utilities',
   REPORTS: 'reports',
   SETTINGS: 'settings',
@@ -78,11 +77,6 @@ export const MODULE_INFO = {
   [MODULES.INVENTORY]: {
     name: 'Inventory',
     description: 'Track inventory and supplies',
-    category: 'operations',
-  },
-  [MODULES.FURNITURE]: {
-    name: 'Furniture',
-    description: 'Manage furniture and assets',
     category: 'operations',
   },
   [MODULES.UTILITIES]: {

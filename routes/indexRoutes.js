@@ -8,7 +8,6 @@ import planRoutes from './planRoutes.js';
 import tenantRoutes from './tenantRoutes.js';
 import staffRoutes from './staffRoutes.js';
 import roomRoutes from './roomRoutes.js';
-import furnitureRoutes from './furnitureRoutes.js';
 import mealRoutes from './mealRoutes.js';
 import expenseRoutes from './expenseRoutes.js';
 import paymentRoutes from './paymentRoutes.js';
@@ -44,7 +43,6 @@ router.use('/tenants', tenantRoutes);
 router.use('/students', tenantRoutes); // Alias for frontend consistency
 router.use('/staff', staffRoutes);
 router.use('/rooms', roomRoutes);
-router.use('/furniture', furnitureRoutes);
 router.use('/meals', mealRoutes);
 router.use('/expenses', expenseRoutes);
 router.use('/payments', paymentRoutes);

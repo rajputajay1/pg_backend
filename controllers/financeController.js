@@ -105,7 +105,7 @@ export const getAllFinance = asyncHandler(async (req, res) => {
   const mappedRecords = records.map(record => {
     const obj = record.toObject();
     const isSalary = type === 'Salary' || obj.category === 'Staff Salary';
-    const isExpense = type === 'Expense' || (['Groceries', 'Electricity Bill', 'Water Bill', 'Gas Bill', 'Internet Bill', 'Repairs', 'Furniture', 'Maintenance', 'Cleaning Supplies', 'Other'].includes(obj.category));
+    const isExpense = type === 'Expense' || (['Groceries', 'Electricity Bill', 'Water Bill', 'Gas Bill', 'Internet Bill', 'Repairs', 'Maintenance', 'Cleaning Supplies', 'Other'].includes(obj.category));
     
     const entityIdField = obj.staff || obj.tenant;
     
@@ -284,7 +284,7 @@ export const createFinance = asyncHandler(async (req, res) => {
     }
 
     let record;
-    const isExpenseType = data.entityType === 'Staff' || ['Salary', 'Groceries', 'Electricity Bill', 'Water Bill', 'Gas Bill', 'Internet Bill', 'Repairs', 'Furniture', 'Maintenance', 'Cleaning Supplies', 'Other Expense'].includes(data.category);
+    const isExpenseType = data.entityType === 'Staff' || ['Salary', 'Groceries', 'Electricity Bill', 'Water Bill', 'Gas Bill', 'Internet Bill', 'Repairs', 'Maintenance', 'Cleaning Supplies', 'Other Expense'].includes(data.category);
 
     if (isExpenseType) {
         if (data.entityId) data.staff = data.entityId;

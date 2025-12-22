@@ -55,10 +55,6 @@ const roomSchema = new mongoose.Schema(
       type: String,
       trim: true
     }],
-    furniture: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Furniture'
-    }],
     hasAttachedBathroom: {
       type: Boolean,
       default: false
@@ -68,6 +64,18 @@ const roomSchema = new mongoose.Schema(
       default: false
     },
     hasAC: {
+      type: Boolean,
+      default: false
+    },
+    hasStudyTable: {
+      type: Boolean,
+      default: false
+    },
+    hasWardrobe: {
+      type: Boolean,
+      default: false
+    },
+    hasWindow: {
       type: Boolean,
       default: false
     },

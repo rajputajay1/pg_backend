@@ -25,7 +25,6 @@ export const getAllRooms = asyncHandler(async (req, res) => {
   const rooms = await Room.find(query)
     .populate('property', 'name address city')
     .populate('owner', 'name email')
-    .populate('furniture', 'name condition')
     .sort({ property: 1, roomNumber: 1 })
     .limit(parseInt(limit))
     .skip(skip);
@@ -41,8 +40,7 @@ export const getAllRooms = asyncHandler(async (req, res) => {
 export const getRoomById = asyncHandler(async (req, res) => {
   const room = await Room.findById(req.params.id)
     .populate('property', 'name address city')
-    .populate('owner', 'name email phone')
-    .populate('furniture', 'name condition quantity');
+    .populate('owner', 'name email phone');
 
   if (!room) {
     return ApiResponse.error(res, 'Room not found', 404);
@@ -87,7 +85,7 @@ export const createRoom = asyncHandler(async (req, res) => {
 // @access  Private
 export const updateRoom = asyncHandler(async (req, res) => {
   const room = await Room.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
-    .populate('property owner furniture');
+    .populate('property owner');
 
   if (!room) {
     return ApiResponse.error(res, 'Room not found', 404);
@@ -142,7 +140,6 @@ export const updateRoomStatus = asyncHandler(async (req, res) => {
 // @access  Private
 export const getRoomsByProperty = asyncHandler(async (req, res) => {
   const rooms = await Room.find({ property: req.params.propertyId })
-    .populate('furniture', 'name condition')
     .sort({ roomNumber: 1 });
 
   ApiResponse.success(res, rooms, 'Rooms fetched successfully');
