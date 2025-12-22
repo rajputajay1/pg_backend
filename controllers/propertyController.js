@@ -35,7 +35,10 @@ export const getAllProperties = asyncHandler(async (req, res) => {
     query.businessType = businessType;
   }
 
-  if (ownerId) {
+  // Security: Enforce ownership for PG Owners
+  if (req.user && req.user.role === 'pg_owner') {
+    query.owner = req.user._id;
+  } else if (ownerId) {
     query.owner = ownerId;
   }
 
@@ -102,15 +105,21 @@ export const createProperty = asyncHandler(async (req, res) => {
     description
   } = req.body;
 
+  // Security: Force owner ID for PG Owners
+  let ownerId = owner;
+  if (req.user && req.user.role === 'pg_owner') {
+    ownerId = req.user._id;
+  }
+
   // Verify owner exists
-  const ownerExists = await PgOwner.findById(owner);
+  const ownerExists = await PgOwner.findById(ownerId);
   if (!ownerExists) {
     return ApiResponse.error(res, 'PG Owner not found', 404);
   }
 
   // Create property
   const property = await Property.create({
-    owner,
+    owner: ownerId,
     name,
     address,
     city,
@@ -137,14 +146,20 @@ export const createProperty = asyncHandler(async (req, res) => {
 // @route   PUT /api/properties/:id
 // @access  Private
 export const updateProperty = asyncHandler(async (req, res) => {
-  const property = await Property.findByIdAndUpdate(
-    req.params.id,
+  const query = { _id: req.params.id };
+  // Security: Enforce ownership
+  if (req.user && req.user.role === 'pg_owner') {
+    query.owner = req.user._id;
+  }
+
+  const property = await Property.findOneAndUpdate(
+    query,
     req.body,
     { new: true, runValidators: true }
   ).populate('owner', 'name email phone pgName');
 
   if (!property) {
-    return ApiResponse.error(res, 'Property not found', 404);
+    return ApiResponse.error(res, 'Property not found or unauthorized', 404);
   }
 
   ApiResponse.success(res, property, 'Property updated successfully');
@@ -154,10 +169,16 @@ export const updateProperty = asyncHandler(async (req, res) => {
 // @route   DELETE /api/properties/:id
 // @access  Private
 export const deleteProperty = asyncHandler(async (req, res) => {
-  const property = await Property.findByIdAndDelete(req.params.id);
+  const query = { _id: req.params.id };
+  // Security: Enforce ownership
+  if (req.user && req.user.role === 'pg_owner') {
+    query.owner = req.user._id;
+  }
+
+  const property = await Property.findOneAndDelete(query);
 
   if (!property) {
-    return ApiResponse.error(res, 'Property not found', 404);
+    return ApiResponse.error(res, 'Property not found or unauthorized', 404);
   }
 
   ApiResponse.success(res, null, 'Property deleted successfully');

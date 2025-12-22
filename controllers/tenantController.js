@@ -6,6 +6,7 @@ import Property from '../models/propertyModel.js';
 import PgOwner from '../models/pgOwnerModel.js';
 import Payment from '../models/paymentModel.js';
 import { syncTenantPaymentStatus } from './financeController.js';
+import { sendTenantWelcomeEmail, sendTenantDepartureEmail } from '../utils/emailService.js';
 
 // @desc    Get all Tenants
 // @route   GET /api/tenants
@@ -26,8 +27,15 @@ export const getAllTenants = asyncHandler(async (req, res) => {
   if (status) query.status = status;
   if (paymentStatus) query.paymentStatus = paymentStatus;
   if (propertyId) query.property = propertyId;
-  if (ownerId) query.owner = ownerId;
   if (occupation) query.occupation = occupation;
+
+  // Security: Enforce ownership for PG Owners
+  if (req.user && req.user.role === 'pg_owner') {
+    query.owner = req.user._id;
+  } else if (ownerId) {
+    // Only admins can filter by arbitrary ownerId
+    query.owner = ownerId;
+  }
 
   const skip = (page - 1) * limit;
   const tenants = await Tenant.find(query)
@@ -68,11 +76,20 @@ export const getTenantById = asyncHandler(async (req, res) => {
 // @route   POST /api/tenants
 // @access  Private
 export const createTenant = asyncHandler(async (req, res) => {
+  // Security: Force owner ID for PG Owners
+  if (req.user && req.user.role === 'pg_owner') {
+    req.body.owner = req.user._id;
+  }
+
   // Validate room capacity if room is assigned
   if (req.body.room) {
     const room = await Room.findById(req.body.room);
     if (!room) {
       return ApiResponse.error(res, 'Room not found', 404);
+    }
+    // Security check for room ownership
+    if (req.user && req.user.role === 'pg_owner' && room.owner.toString() !== req.user._id.toString()) {
+        return ApiResponse.error(res, 'Invalid room selection', 403);
     }
     if (room.status === 'Occupied' || room.currentOccupancy >= room.capacity) {
       return ApiResponse.error(res, 'Room is already at full capacity or occupied', 400);
@@ -139,6 +156,14 @@ export const createTenant = asyncHandler(async (req, res) => {
   // 3. Sync final status
   await syncTenantPaymentStatus(tenant._id);
 
+  // Send Welcome Email
+  try {
+      await sendTenantWelcomeEmail(tenant);
+  } catch (emailError) {
+      console.error('Failed to send welcome email:', emailError);
+      // We don't block creation if email fails
+  }
+
   ApiResponse.success(res, tenant, 'Tenant created successfully', 201);
 });
 
@@ -147,10 +172,17 @@ export const createTenant = asyncHandler(async (req, res) => {
 // @access  Private
 export const updateTenant = asyncHandler(async (req, res) => {
   const { room: newRoomId } = req.body;
-  const currentTenant = await Tenant.findById(req.params.id);
+  
+  const query = { _id: req.params.id };
+  // Security: Enforce ownership
+  if (req.user && req.user.role === 'pg_owner') {
+    query.owner = req.user._id;
+  }
+
+  const currentTenant = await Tenant.findOne(query);
 
   if (!currentTenant) {
-      return ApiResponse.error(res, 'Tenant not found', 404);
+      return ApiResponse.error(res, 'Tenant not found or unauthorized', 404);
   }
 
   // Handle Room Change
@@ -159,6 +191,12 @@ export const updateTenant = asyncHandler(async (req, res) => {
       if (!newRoom) {
           return ApiResponse.error(res, 'New room not found', 404);
       }
+      
+      // Security check for new room ownership
+      if (req.user && req.user.role === 'pg_owner' && newRoom.owner.toString() !== req.user._id.toString()) {
+          return ApiResponse.error(res, 'Invalid room selection', 403);
+      }
+
       if (newRoom.status === 'Occupied' || newRoom.currentOccupancy >= newRoom.capacity) {
           return ApiResponse.error(res, 'New room is already at full capacity or occupied', 400);
       }
@@ -184,7 +222,7 @@ export const updateTenant = asyncHandler(async (req, res) => {
       await Room.findByIdAndUpdate(newRoomId, updateData);
   }
 
-  const tenant = await Tenant.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+  const tenant = await Tenant.findOneAndUpdate(query, req.body, { new: true, runValidators: true })
     .populate('property owner room mealPlan');
 
   if (!tenant) {
@@ -198,10 +236,16 @@ export const updateTenant = asyncHandler(async (req, res) => {
 // @route   DELETE /api/tenants/:id
 // @access  Private
 export const deleteTenant = asyncHandler(async (req, res) => {
-  const tenant = await Tenant.findById(req.params.id);
+  const query = { _id: req.params.id };
+  // Security: Enforce ownership
+  if (req.user && req.user.role === 'pg_owner') {
+    query.owner = req.user._id;
+  }
+
+  const tenant = await Tenant.findOne(query);
 
   if (!tenant) {
-    return ApiResponse.error(res, 'Tenant not found', 404);
+    return ApiResponse.error(res, 'Tenant not found or unauthorized', 404);
   }
 
   // Update room occupancy
@@ -214,6 +258,13 @@ export const deleteTenant = asyncHandler(async (req, res) => {
             status: 'Available' // Becomes available
         });
     }
+  }
+
+  // Send Departure Email before deletion
+  try {
+      await sendTenantDepartureEmail(tenant);
+  } catch (emailErr) {
+      console.error("Failed to send departure email", emailErr);
   }
 
   await tenant.deleteOne();

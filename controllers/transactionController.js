@@ -39,6 +39,13 @@ export const getAllTransactions = asyncHandler(async (req, res) => {
     query.owner = ownerId;
   }
 
+  // Security: Enforce ownership for PG Owners
+  if (req.user && req.user.role === 'pg_owner') {
+    query.owner = req.user._id;
+  } else if (ownerId) {
+    query.owner = ownerId;
+  }
+
   // Date range filter
   if (startDate || endDate) {
     query.createdAt = {};

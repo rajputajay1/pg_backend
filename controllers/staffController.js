@@ -1,6 +1,7 @@
 import asyncHandler from '../utils/asyncHandler.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import Staff from '../models/staffModel.js';
+import Property from '../models/propertyModel.js';
 import bcrypt from 'bcryptjs';
 
 // @desc    Get all Staff
@@ -21,7 +22,13 @@ export const getAllStaff = asyncHandler(async (req, res) => {
 
   if (role) query.role = role;
   if (propertyId) query.property = propertyId;
-  if (ownerId) query.owner = ownerId;
+  
+  // Security: Enforce ownership for PG Owners
+  if (req.user && req.user.role === 'pg_owner') {
+    query.owner = req.user._id;
+  } else if (ownerId) {
+    query.owner = ownerId;
+  }
   if (isActive !== undefined) query.isActive = isActive === 'true';
 
   const skip = (page - 1) * limit;
@@ -59,6 +66,42 @@ export const getStaffById = asyncHandler(async (req, res) => {
 // @access  Private
 export const createStaff = asyncHandler(async (req, res) => {
   let { password, ...staffData } = req.body;
+
+  // Security: Force owner ID for PG Owners
+  if (req.user && req.user.role === 'pg_owner') {
+    staffData.owner = req.user._id;
+  }
+
+  // Security: Confirm property belongs to owner
+  if (staffData.property) {
+      if (req.user && req.user.role === 'pg_owner') {
+          // DEBUGGING BLOCK
+          console.log('--- Debugging Staff Creation ---');
+          const targetProperty = await Property.findById(staffData.property);
+          
+          if (!targetProperty) {
+              return ApiResponse.error(res, `Property with ID ${staffData.property} not found in database`, 404);
+          }
+
+          console.log('Target Property:', targetProperty); // Print the whole object to see fields
+
+          if (!targetProperty.owner) {
+              console.error(`CRITICAL: Property ${staffData.property} has NO OWNER field! Data corruption?`);
+              return ApiResponse.error(res, `System Error: Property ${staffData.property} exists but has no owner assigned. Please contact support.`, 500);
+          }
+          
+          console.log('User ID from Request:', req.user._id);
+          console.log('User Object:', req.user);
+
+          const propertyOwnerId = String(targetProperty.owner);
+          const currentUserId = String(req.user._id);
+
+          if (propertyOwnerId !== currentUserId) {
+              return ApiResponse.error(res, `Ownership Mismatch! Property belongs to: ${propertyOwnerId}, but you are: ${currentUserId}`, 403);
+          }
+          // END DEBUGGING BLOCK
+      }
+  }
 
   // If password is not provided, use phone number as default or fallback
   if (!password) {
@@ -98,11 +141,17 @@ export const updateStaff = asyncHandler(async (req, res) => {
     updateData.password = await bcrypt.hash(password, salt);
   }
 
-  const staff = await Staff.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true })
+  const query = { _id: req.params.id };
+  // Security: Enforce ownership
+  if (req.user && req.user.role === 'pg_owner') {
+    query.owner = req.user._id;
+  }
+
+  const staff = await Staff.findOneAndUpdate(query, updateData, { new: true, runValidators: true })
     .populate('owner property assignedRooms');
 
   if (!staff) {
-    return ApiResponse.error(res, 'Staff not found', 404);
+    return ApiResponse.error(res, 'Staff not found or unauthorized', 404);
   }
 
   ApiResponse.success(res, staff, 'Staff updated successfully');
@@ -112,10 +161,16 @@ export const updateStaff = asyncHandler(async (req, res) => {
 // @route   DELETE /api/staff/:id
 // @access  Private
 export const deleteStaff = asyncHandler(async (req, res) => {
-  const staff = await Staff.findByIdAndDelete(req.params.id);
+  const query = { _id: req.params.id };
+  // Security: Enforce ownership
+  if (req.user && req.user.role === 'pg_owner') {
+    query.owner = req.user._id;
+  }
+
+  const staff = await Staff.findOneAndDelete(query);
 
   if (!staff) {
-    return ApiResponse.error(res, 'Staff not found', 404);
+    return ApiResponse.error(res, 'Staff not found or unauthorized', 404);
   }
 
   ApiResponse.success(res, null, 'Staff deleted successfully');
@@ -127,14 +182,20 @@ export const deleteStaff = asyncHandler(async (req, res) => {
 export const updateStaffPermissions = asyncHandler(async (req, res) => {
   const { permissions } = req.body;
 
-  const staff = await Staff.findByIdAndUpdate(
-    req.params.id,
+  const query = { _id: req.params.id };
+  // Security: Enforce ownership
+  if (req.user && req.user.role === 'pg_owner') {
+    query.owner = req.user._id;
+  }
+
+  const staff = await Staff.findOneAndUpdate(
+    query,
     { permissions },
     { new: true, runValidators: true }
   );
 
   if (!staff) {
-    return ApiResponse.error(res, 'Staff not found', 404);
+    return ApiResponse.error(res, 'Staff not found or unauthorized', 404);
   }
 
   ApiResponse.success(res, staff, 'Staff permissions updated successfully');

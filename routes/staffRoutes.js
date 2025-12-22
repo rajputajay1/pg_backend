@@ -1,15 +1,15 @@
 import express from 'express';
 import * as staffController from '../controllers/staffController.js';
-import auth from '../middleware/auth.js';
+import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.get('/', auth, staffController.getAllStaff);
-router.get('/property/:propertyId', auth, staffController.getStaffByProperty);
-router.get('/:id', auth, staffController.getStaffById);
-router.post('/', auth, staffController.createStaff);
-router.put('/:id', auth, staffController.updateStaff);
-router.delete('/:id', auth, staffController.deleteStaff);
-router.patch('/:id/permissions', auth, staffController.updateStaffPermissions);
+router.get('/', protect, staffController.getAllStaff);
+router.get('/property/:propertyId', protect, staffController.getStaffByProperty);
+router.get('/:id', protect, staffController.getStaffById);
+router.post('/', protect, staffController.createStaff);
+router.put('/:id', protect, staffController.updateStaff);
+router.delete('/:id', protect, staffController.deleteStaff);
+router.patch('/:id/permissions', protect, staffController.updateStaffPermissions);
 
 export default router;

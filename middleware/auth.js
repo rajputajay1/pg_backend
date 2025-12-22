@@ -14,6 +14,11 @@ export const protect = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
+    
+    // Normalize ID: Ensure req.user._id is available even if token has 'id'
+    if (req.user.id && !req.user._id) {
+        req.user._id = req.user.id;
+    }
     next();
   } catch (error) {
     res.status(401).json({

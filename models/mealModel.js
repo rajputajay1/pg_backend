@@ -4,47 +4,22 @@ const mealSchema = new mongoose.Schema(
   {
     property: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Property',
-      required: [true, 'Property reference is required']
+      ref: 'Property'
     },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'PgOwner',
       required: [true, 'Owner reference is required']
     },
-    planName: {
+    name: {
       type: String,
-      required: [true, 'Meal plan name is required'],
+      required: [true, 'Meal name is required'],
       trim: true
     },
-    planType: {
+    type: {
       type: String,
-      enum: ['Breakfast Only', 'Lunch Only', 'Dinner Only', 'Breakfast + Lunch', 'Breakfast + Dinner', 'Lunch + Dinner', 'All Meals', 'Custom'],
-      required: [true, 'Plan type is required']
-    },
-    mealTiming: {
-      breakfast: {
-        startTime: String,
-        endTime: String
-      },
-      lunch: {
-        startTime: String,
-        endTime: String
-      },
-      dinner: {
-        startTime: String,
-        endTime: String
-      }
-    },
-    pricePerDay: {
-      type: Number,
-      required: [true, 'Price per day is required'],
-      min: [0, 'Price cannot be negative']
-    },
-    pricePerMonth: {
-      type: Number,
-      required: [true, 'Price per month is required'],
-      min: [0, 'Price cannot be negative']
+      enum: ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'All Meals'],
+      default: 'All Meals'
     },
     menuType: {
       type: String,

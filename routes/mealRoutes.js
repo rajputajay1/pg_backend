@@ -4,6 +4,7 @@ import auth from '../middleware/auth.js';
 
 const router = express.Router();
 router.get('/', auth, controller.getAllMeals);
+router.get('/stats', auth, controller.getMealStats);
 router.get('/:id', auth, controller.getMealById);
 router.post('/', auth, controller.createMeal);
 router.put('/:id', auth, controller.updateMeal);

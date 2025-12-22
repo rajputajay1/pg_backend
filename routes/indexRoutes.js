@@ -9,6 +9,7 @@ import tenantRoutes from './tenantRoutes.js';
 import staffRoutes from './staffRoutes.js';
 import roomRoutes from './roomRoutes.js';
 import mealRoutes from './mealRoutes.js';
+import menuRoutes from './menuRoutes.js';
 import expenseRoutes from './expenseRoutes.js';
 import paymentRoutes from './paymentRoutes.js';
 import complaintRoutes from './complaintRoutes.js';
@@ -44,6 +45,7 @@ router.use('/students', tenantRoutes); // Alias for frontend consistency
 router.use('/staff', staffRoutes);
 router.use('/rooms', roomRoutes);
 router.use('/meals', mealRoutes);
+router.use('/menu', menuRoutes);
 router.use('/expenses', expenseRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/complaints', complaintRoutes);

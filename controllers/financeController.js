@@ -4,6 +4,7 @@ import Payment from '../models/paymentModel.js';
 import Expense from '../models/expenseModel.js';
 import Tenant from '../models/tenantModel.js';
 import Staff from '../models/staffModel.js';
+import { sendRentPaymentConfirmationEmail, sendSalaryCreditEmail } from '../utils/emailService.js';
 
 // Helper to sync tenant payment status based on all records
 export const syncTenantPaymentStatus = async (tenantId) => {
@@ -303,6 +304,19 @@ export const createFinance = asyncHandler(async (req, res) => {
 
     await record.populate(record.staff ? 'staff property' : 'tenant property');
 
+    // Trigger Email if Paid
+    try {
+        if (record.status && record.status.toLowerCase() === 'paid') {
+            if (record.category === 'Rent' && record.tenant) {
+                 await sendRentPaymentConfirmationEmail(record);
+            } else if (['Staff Salary', 'Salary'].includes(record.category) && record.staff) {
+                 await sendSalaryCreditEmail(record);
+            }
+        }
+    } catch (emailErr) {
+        console.error("Email sending failed for new record", emailErr);
+    }
+
     const obj = record.toObject();
     const mapped = {
         id: obj._id,
@@ -340,6 +354,19 @@ export const updateFinance = asyncHandler(async (req, res) => {
     }
 
     await updatedRecord.populate(updatedRecord.staff ? 'staff property' : 'tenant property');
+
+    // Trigger Email if Paid
+    try {
+        if (updatedRecord.status && updatedRecord.status.toLowerCase() === 'paid') {
+            if (updatedRecord.category === 'Rent' && updatedRecord.tenant) {
+                 await sendRentPaymentConfirmationEmail(updatedRecord);
+            } else if (['Staff Salary', 'Salary'].includes(updatedRecord.category) && updatedRecord.staff) {
+                 await sendSalaryCreditEmail(updatedRecord);
+            }
+        }
+    } catch (emailErr) {
+        console.error("Email sending failed for updated record", emailErr);
+    }
 
     const obj = updatedRecord.toObject();
     const mapped = {

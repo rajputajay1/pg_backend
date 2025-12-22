@@ -10,9 +10,10 @@ import {
   updatePgOwner,
   deletePgOwner,
   toggleOwnerStatus,
-  getDashboardStats
+  getDashboardStats,
+  getOwnerDashboardStats
 } from '../controllers/pgOwnerController.js';
-import auth from '../middleware/auth.js';
+import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -28,27 +29,30 @@ router.post('/login', login);
 
 // ==================== PG OWNER PROTECTED ROUTES ====================
 
+// Owner Dashboard Stats
+router.get('/dashboard-stats', protect, getOwnerDashboardStats);
+
 // Change Password (Protected)
-router.post('/change-password', auth, changePassword);
+router.post('/change-password', protect, changePassword);
 
 // ==================== SUPER ADMIN ROUTES (Protected) ====================
 
 // Get all PG Owners
-router.get('/', auth, getAllPgOwners);
+router.get('/', protect, getAllPgOwners);
 
 // Get Dashboard Stats
-router.get('/stats/dashboard', auth, getDashboardStats);
+router.get('/stats/dashboard', protect, getDashboardStats);
 
 // Get PG Owner by ID
-router.get('/:id', auth, getPgOwnerById);
+router.get('/:id', protect, getPgOwnerById);
 
 // Update PG Owner
-router.put('/:id', auth, updatePgOwner);
+router.put('/:id', protect, updatePgOwner);
 
 // Delete PG Owner
-router.delete('/:id', auth, deletePgOwner);
+router.delete('/:id', protect, deletePgOwner);
 
 // Toggle PG Owner Status
-router.patch('/:id/status', auth, toggleOwnerStatus);
+router.patch('/:id/status', protect, toggleOwnerStatus);
 
 export default router;

@@ -19,7 +19,13 @@ export const getAllRooms = asyncHandler(async (req, res) => {
   if (status) query.status = status;
   if (roomType) query.roomType = roomType;
   if (propertyId) query.property = propertyId;
-  if (ownerId) query.owner = ownerId;
+  
+  // Security: Enforce ownership for PG Owners
+  if (req.user && req.user.role === 'pg_owner') {
+    query.owner = req.user._id;
+  } else if (ownerId) {
+    query.owner = ownerId;
+  }
 
   const skip = (page - 1) * limit;
   const rooms = await Room.find(query)
@@ -55,10 +61,20 @@ export const getRoomById = asyncHandler(async (req, res) => {
 export const createRoom = asyncHandler(async (req, res) => {
   const { property, roomNumber } = req.body;
 
+  // Security: Force owner ID for PG Owners
+  if (req.user && req.user.role === 'pg_owner') {
+    req.body.owner = req.user._id;
+  }
+
   // Check if property exists
   const propertyExists = await Property.findById(property);
   if (!propertyExists) {
     return ApiResponse.error(res, 'Property not found. Please create a property first.', 404);
+  }
+
+  // Security: Ensure owner owns the property
+  if (req.user && req.user.role === 'pg_owner' && propertyExists.owner.toString() !== req.user._id.toString()) {
+      return ApiResponse.error(res, 'Unauthorized to add room to this property', 403);
   }
 
   // Check if room number already exists for this property
@@ -84,11 +100,17 @@ export const createRoom = asyncHandler(async (req, res) => {
 // @route   PUT /api/rooms/:id
 // @access  Private
 export const updateRoom = asyncHandler(async (req, res) => {
-  const room = await Room.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+  const query = { _id: req.params.id };
+  // Security: Enforce ownership
+  if (req.user && req.user.role === 'pg_owner') {
+    query.owner = req.user._id;
+  }
+
+  const room = await Room.findOneAndUpdate(query, req.body, { new: true, runValidators: true })
     .populate('property owner');
 
   if (!room) {
-    return ApiResponse.error(res, 'Room not found', 404);
+    return ApiResponse.error(res, 'Room not found or unauthorized', 404);
   }
 
   ApiResponse.success(res, room, 'Room updated successfully');
@@ -98,10 +120,16 @@ export const updateRoom = asyncHandler(async (req, res) => {
 // @route   DELETE /api/rooms/:id
 // @access  Private
 export const deleteRoom = asyncHandler(async (req, res) => {
-  const room = await Room.findById(req.params.id);
+  const query = { _id: req.params.id };
+  // Security: Enforce ownership
+  if (req.user && req.user.role === 'pg_owner') {
+    query.owner = req.user._id;
+  }
+
+  const room = await Room.findOne(query);
 
   if (!room) {
-    return ApiResponse.error(res, 'Room not found', 404);
+    return ApiResponse.error(res, 'Room not found or unauthorized', 404);
   }
 
   // Update property total rooms
@@ -122,14 +150,20 @@ export const updateRoomStatus = asyncHandler(async (req, res) => {
     return ApiResponse.error(res, 'Invalid status value', 400);
   }
 
-  const room = await Room.findByIdAndUpdate(
-    req.params.id,
+  const query = { _id: req.params.id };
+  // Security: Enforce ownership
+  if (req.user && req.user.role === 'pg_owner') {
+    query.owner = req.user._id;
+  }
+
+  const room = await Room.findOneAndUpdate(
+    query,
     { status },
     { new: true, runValidators: true }
   ).populate('property owner');
 
   if (!room) {
-    return ApiResponse.error(res, 'Room not found', 404);
+    return ApiResponse.error(res, 'Room not found or unauthorized', 404);
   }
 
   ApiResponse.success(res, room, 'Room status updated successfully');

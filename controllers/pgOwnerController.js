@@ -1,8 +1,17 @@
+import mongoose from 'mongoose';
 import asyncHandler from '../utils/asyncHandler.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import PgOwner from '../models/pgOwnerModel.js';
 import Plan from '../models/planModel.js';
 import AuditLog from '../models/auditLogModel.js';
+import Tenant from '../models/tenantModel.js';
+import Staff from '../models/staffModel.js';
+import Room from '../models/roomModel.js';
+import Payment from '../models/paymentModel.js';
+import Expense from '../models/expenseModel.js';
+import Meal from '../models/mealModel.js';
+import Utility from '../models/utilityModel.js';
+import Property from '../models/propertyModel.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { generateRandomPassword, sendWelcomeEmail } from '../utils/emailService.js';
@@ -438,6 +447,100 @@ export const changePassword = asyncHandler(async (req, res) => {
     message: 'Password changed successfully',
     isPasswordChange: true
   }, 'Password updated successfully');
+});
+
+// ==================== PG OWNER DASHBOARD ====================
+
+// @desc    Get Owner Dashboard Statistics
+// @route   GET /api/pg-owners/dashboard-stats
+// @access  Private (PG Owner)
+export const getOwnerDashboardStats = asyncHandler(async (req, res) => {
+  const { propertyId } = req.query;
+  const ownerId = req.user._id;
+
+  const filter = { owner: ownerId };
+  if (propertyId && mongoose.isValidObjectId(propertyId)) {
+    filter.property = propertyId;
+  }
+
+  // Execute all queries in parallel for performance
+  const [
+    totalStudents,
+    totalStaff,
+    totalRooms,
+    occupiedRooms,
+    totalMeals,
+    totalUtilities,
+    pendingUtilities,
+    pendingPayments,
+    recentStudents,
+    recentStaff,
+    revenueData,
+    expenseData
+  ] = await Promise.all([
+    // Counts
+    Tenant.countDocuments({ ...filter, isActive: true }),
+    Staff.countDocuments({ ...filter, isActive: true }),
+    Room.countDocuments(filter),
+    Room.countDocuments({ ...filter, status: 'Occupied' }),
+    Meal.countDocuments({ ...filter, isActive: true }),
+    Utility.countDocuments(filter),
+    Utility.countDocuments({ ...filter, status: 'Pending' }),
+    Payment.countDocuments({ ...filter, status: 'pending' }),
+
+    // Recent Activities (New Students & Staff)
+    Tenant.find({ ...filter }).sort({ createdAt: -1 }).limit(3).select('name createdAt'),
+    Staff.find({ ...filter }).sort({ createdAt: -1 }).limit(2).select('name role createdAt'),
+
+    // Financials (Aggregated)
+    Payment.aggregate([
+      { $match: { owner: new mongoose.Types.ObjectId(ownerId), status: 'paid' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]),
+    Expense.aggregate([
+      { $match: { owner: new mongoose.Types.ObjectId(ownerId) } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ])
+  ]);
+
+  // Calculate Derived Stats
+  const totalRevenue = revenueData.length > 0 ? revenueData[0].total : 0;
+  const totalExpenses = expenseData.length > 0 ? expenseData[0].total : 0;
+  const occupancyRate = totalRooms > 0 ? ((occupiedRooms / totalRooms) * 100).toFixed(1) : 0;
+
+  // Format Recent Activities
+  const activities = [
+    ...recentStudents.map(s => ({
+      id: `student-${s._id}`,
+      type: 'student',
+      message: `New student: ${s.name}`,
+      time: s.createdAt
+    })),
+    ...recentStaff.map(s => ({
+      id: `staff-${s._id}`,
+      type: 'staff',
+      message: `New staff: ${s.name} (${s.role})`,
+      time: s.createdAt
+    }))
+  ].sort((a, b) => new Date(b.time) - new Date(a.time));
+
+  // Construct Response
+  const stats = {
+    totalStudents,
+    totalStaff,
+    totalRooms,
+    occupiedRooms,
+    occupancyRate,
+    totalRevenue,
+    totalExpenses,
+    pendingPayments,
+    totalMeals,
+    totalUtilities,
+    pendingUtilities,
+    activities
+  };
+
+  ApiResponse.success(res, stats, 'Dashboard statistics fetched successfully');
 });
 
 // ==================== SUPER ADMIN - PG OWNER MANAGEMENT ====================
