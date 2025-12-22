@@ -26,7 +26,7 @@ export const generateWebsiteUrl = (name) => {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
   
-  const ownerFrontendUrl = process.env.OWNER_FRONTEND_URL || 'http://localhost:8081';
+  const ownerFrontendUrl = process.env.OWNER_FRONTEND_URL || 'https://mansion-muse-git-main-rajputajay1s-projects.vercel.app/';
   return `${ownerFrontendUrl}`;
 };
 
