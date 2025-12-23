@@ -19,7 +19,7 @@ connectDB();
 app.use(helmet());
 
 app.use(cors({
-  origin: ['http://localhost:8081', 'http://localhost:8080', 'https://mansion-muse-git-main-rajputajay1s-projects.vercel.app'],
+  origin: [ 'https://mansion-muse-hub-git-main-rajputajay1s-projects.vercel.app/', 'https://mansion-muse-git-main-rajputajay1s-projects.vercel.app'],
   credentials: true
 }));
 
