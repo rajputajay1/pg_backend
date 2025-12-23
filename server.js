@@ -21,24 +21,26 @@ app.use(helmet());
 app.use(cors({
   origin: function (origin, callback) {
     const allowedOrigins = [
-
-      'https://mansion-muse.vercel.app/',
-      'https://mansion-muse-hub.vercel.app/'
+      'https://mansion-muse.vercel.app',
+      'https://mansion-muse-hub.vercel.app',
+      'http://localhost:5173',
+      'http://localhost:8081'
     ];
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
+    // Check against allowed origins or allow any vercel.app subdomain
+    if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
       callback(null, true);
     } else {
       console.log('Blocked by CORS:', origin);
-      callback(null, false); // Fail strict
-      // callback(null, true); // Permissive mode (use if strict fails too much)
+      callback(null, false);
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
 }));
 
 app.use(compression());
