@@ -37,19 +37,30 @@ export const generateWebsiteUrl = (name) => {
 const createTransporter = () => {
   // Check if SMTP credentials are available
   if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    const port = parseInt(process.env.SMTP_PORT) || 587;
+    const secure = process.env.SMTP_SECURE === 'true' || port === 465;
+
+    console.log(`📧 Configuring SMTP Transporter: ${process.env.SMTP_HOST}:${port} (Secure: ${secure})`);
+
     return nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT) || 587,
-      secure: process.env.SMTP_SECURE === 'true',
+      port: port,
+      secure: secure,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
+      // Increase connection timeout to 10 seconds
+      connectionTimeout: 10000, 
+      // Ensure we don't hang indefinitely
+      greetingTimeout: 5000,
+      socketTimeout: 10000,
     });
   }
   
   // Fallback to Gmail if configured
   if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+    console.log(`📧 Configuring Gmail Service Transporter for: ${process.env.GMAIL_USER}`);
     return nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -59,6 +70,7 @@ const createTransporter = () => {
     });
   }
   
+  console.error('❌ No email configuration found in environment variables.');
   return null;
 };
 
