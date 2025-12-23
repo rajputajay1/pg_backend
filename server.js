@@ -19,8 +19,26 @@ connectDB();
 app.use(helmet());
 
 app.use(cors({
-  origin: "*",
-  credentials: true
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+
+      'https://mansion-muse.vercel.app/',
+      'https://mansion-muse-hub.vercel.app/'
+    ];
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
+      callback(null, true);
+    } else {
+      console.log('Blocked by CORS:', origin);
+      callback(null, false); // Fail strict
+      // callback(null, true); // Permissive mode (use if strict fails too much)
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 app.use(compression());
