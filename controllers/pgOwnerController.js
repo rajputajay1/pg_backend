@@ -203,7 +203,7 @@ export const completeRegistration = asyncHandler(async (req, res) => {
   }
 
   // Generate website URL
-  const websiteUrl = process.env.OWNER_FRONTEND_URL || 'http://localhost:8081';
+  const websiteUrl = process.env.OWNER_FRONTEND_URL || 'https://mansion-muse.vercel.app/admin-login';
 
   // Create PG Owner
   const owner = await PgOwner.create({
