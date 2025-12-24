@@ -1,5 +1,13 @@
-import nodemailerPackage from 'nodemailer';
-const nodemailer = nodemailerPackage.default || nodemailerPackage;
+import sgMail from '@sendgrid/mail';
+
+// Helper to ensure SendGrid is initialized with the latest env vars
+const ensureSendGridInitialized = () => {
+    if (process.env.SENDGRID_API_KEY) {
+        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    } else {
+        console.warn("⚠️ SENDGRID_API_KEY is missing from environment variables (Lazy Check).");
+    }
+};
 
 /**
  * Generate a random password
@@ -30,48 +38,8 @@ export const generateWebsiteUrl = (name) => {
   return `${ownerFrontendUrl}`;
 };
 
-/**
- * Create email transporter
- * @returns {object} Nodemailer transporter
- */
-const createTransporter = () => {
-  // Check if SMTP credentials are available
-  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-    const port = parseInt(process.env.SMTP_PORT) || 587;
-    const secure = process.env.SMTP_SECURE === 'true' || port === 465;
-
-    console.log(`📧 Configuring SMTP Transporter: ${process.env.SMTP_HOST}:${port} (Secure: ${secure})`);
-
-    return nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: port,
-      secure: secure,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-      // Increase connection timeout to 10 seconds
-      connectionTimeout: 10000, 
-      // Ensure we don't hang indefinitely
-      greetingTimeout: 5000,
-      socketTimeout: 10000,
-    });
-  }
-  
-  // Fallback to Gmail if configured
-  if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
-    console.log(`📧 Configuring Gmail Service Transporter for: ${process.env.GMAIL_USER}`);
-    return nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
-    });
-  }
-  
-  console.error('❌ No email configuration found in environment variables.');
-  return null;
+const getSender = () => {
+  return process.env.FROM_EMAIL || 'noreply@mansionmuse.com';
 };
 
 /**
@@ -80,20 +48,16 @@ const createTransporter = () => {
  * @returns {Promise<object>} Send result
  */
 export const sendWelcomeEmail = async (data) => {
+  ensureSendGridInitialized();
   const { to, name, email, password, websiteUrl, planName, planPrice } = data;
   
-  console.log('📧 ========== EMAIL SENDING ATTEMPT ==========');
+  console.log('📧 ========== EMAIL SENDING ATTEMPT (SendGrid) ==========');
   console.log('📧 Recipient:', to);
+  const sender = getSender();
+  console.log('📧 Sender (From):', sender);
   
-  const transporter = createTransporter();
-  
-  if (!transporter) {
-    console.log('❌ Email service not configured.');
-    return { success: false, message: 'Email service not configured' };
-  }
-
   const mailOptions = {
-    from: process.env.SMTP_FROM || process.env.GMAIL_USER || 'noreply@mansionmuse.com',
+    from: sender,
     to,
     subject: `Welcome to Mansion Muse - Your ${planName} Plan is Active!`,
     html: `
@@ -161,11 +125,11 @@ export const sendWelcomeEmail = async (data) => {
   };
 
   try {
-    await transporter.sendMail(mailOptions);
-    console.log('✅ Welcome email sent successfully');
+    const response = await sgMail.send(mailOptions);
+    console.log(`✅ Welcome email sent successfully to ${to}. Status Code: ${response[0]?.statusCode}`);
     return { success: true };
   } catch (error) {
-    console.error('❌ Email sending failed:', error);
+    console.error('❌ Email sending failed:', error.response?.body || error);
     return { success: false, message: error.message };
   }
 };
@@ -174,15 +138,13 @@ export const sendWelcomeEmail = async (data) => {
  * Send Tenant Registration Email with Full Bio-Data
  */
 export const sendTenantWelcomeEmail = async (tenant) => {
+  ensureSendGridInitialized();
   const { name, email, room, rentAmount, securityDeposit, depositStatus, paymentStatus, joiningDate, property, owner } = tenant;
   
   if (!email) return;
 
-  const transporter = createTransporter();
-  if (!transporter) return;
-
   const mailOptions = {
-    from: process.env.SMTP_FROM || process.env.GMAIL_USER || 'noreply@mansionmuse.com',
+    from: getSender(),
     to: email,
     subject: `Welcome to ${property?.name || 'Our PG'} - Registration Confirmed`,
     html: `
@@ -268,10 +230,10 @@ export const sendTenantWelcomeEmail = async (tenant) => {
   };
 
   try {
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ Tenant welcome email sent to ${email}`);
+    const response = await sgMail.send(mailOptions);
+    console.log(`✅ Tenant welcome email sent to ${email}. Status Code: ${response[0]?.statusCode}`);
   } catch (error) {
-    console.error('❌ Failed to send tenant welcome email:', error);
+    console.error('❌ Failed to send tenant welcome email:', error.response?.body || error);
   }
 };
 
@@ -279,17 +241,15 @@ export const sendTenantWelcomeEmail = async (tenant) => {
  * Send Rent Payment Confirmation (Student)
  */
 export const sendRentPaymentConfirmationEmail = async (payment) => {
+  ensureSendGridInitialized();
   const { tenant, amount, paymentDate, property, month, year } = payment;
   if (!tenant?.email) return;
-
-  const transporter = createTransporter();
-  if (!transporter) return;
 
   const formattedDate = paymentDate ? new Date(paymentDate).toLocaleDateString() : new Date().toLocaleDateString();
   const receiptNo = `RCPT-${Math.floor(Math.random() * 1000000)}`;
 
   const mailOptions = {
-    from: process.env.SMTP_FROM || process.env.GMAIL_USER || 'noreply@mansionmuse.com',
+    from: getSender(),
     to: tenant.email,
     subject: `Rent Payment Receipt - ₹${amount} Received`,
     html: `
@@ -352,10 +312,10 @@ export const sendRentPaymentConfirmationEmail = async (payment) => {
   };
 
   try {
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ Rent receipt sent to ${tenant.email}`);
+    const response = await sgMail.send(mailOptions);
+    console.log(`✅ Rent receipt sent to ${tenant.email}. Status Code: ${response[0]?.statusCode}`);
   } catch (error) {
-    console.error('❌ Failed to send rent receipt:', error);
+    console.error('❌ Failed to send rent receipt:', error.response?.body || error);
   }
 };
 
@@ -363,6 +323,7 @@ export const sendRentPaymentConfirmationEmail = async (payment) => {
  * Send Salary Credit Confirmation (Staff)
  */
 export const sendSalaryCreditEmail = async (expense) => {
+  ensureSendGridInitialized();
   const { staff, amount, date, property } = expense;
   // If staff object is populated, use its email.
   const email = staff?.email;
@@ -370,13 +331,10 @@ export const sendSalaryCreditEmail = async (expense) => {
   
   if (!email) return;
 
-  const transporter = createTransporter();
-  if (!transporter) return;
-
   const formattedDate = date ? new Date(date).toLocaleDateString() : new Date().toLocaleDateString();
 
   const mailOptions = {
-    from: process.env.SMTP_FROM || process.env.GMAIL_USER || 'noreply@mansionmuse.com',
+    from: getSender(),
     to: email,
     subject: `Salary Credited - ₹${amount}`,
     html: `
@@ -441,10 +399,10 @@ export const sendSalaryCreditEmail = async (expense) => {
   };
 
   try {
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ Salary email sent to ${email}`);
+    const response = await sgMail.send(mailOptions);
+    console.log(`✅ Salary email sent to ${email}. Status Code: ${response[0]?.statusCode}`);
   } catch (error) {
-    console.error('❌ Failed to send salary email:', error);
+    console.error('❌ Failed to send salary email:', error.response?.body || error);
   }
 };
 
@@ -452,10 +410,8 @@ export const sendSalaryCreditEmail = async (expense) => {
  * Send Weekly Meal Schedule Email
  */
 export const sendMealScheduleEmail = async (tenant, menu, property) => {
+  ensureSendGridInitialized();
   if (!tenant?.email) return;
-
-  const transporter = createTransporter();
-  if (!transporter) return;
 
   const getDayItems = (dayData) => {
     if (!dayData) return { breakfast: '-', lunch: '-', dinner: '-' };
@@ -485,7 +441,7 @@ export const sendMealScheduleEmail = async (tenant, menu, property) => {
   });
 
   const mailOptions = {
-    from: process.env.SMTP_FROM || process.env.GMAIL_USER || 'noreply@mansionmuse.com',
+    from: getSender(),
     to: tenant.email,
     subject: `Weekly Meal Schedule Updated - ${property?.name || 'Mansion Muse'}`,
     html: `
@@ -549,10 +505,10 @@ export const sendMealScheduleEmail = async (tenant, menu, property) => {
   };
 
   try {
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ Menu email sent to ${tenant.email}`);
+    const response = await sgMail.send(mailOptions);
+    console.log(`✅ Menu email sent to ${tenant.email}. Status Code: ${response[0]?.statusCode}`);
   } catch (error) {
-    console.error('❌ Failed to send menu email:', error);
+    console.error('❌ Failed to send menu email:', error.response?.body || error);
   }
 };
 
@@ -560,13 +516,11 @@ export const sendMealScheduleEmail = async (tenant, menu, property) => {
  * Send Tenant Departure/Account Deletion Email
  */
 export const sendTenantDepartureEmail = async (tenant) => {
+  ensureSendGridInitialized();
   if (!tenant?.email) return;
 
-  const transporter = createTransporter();
-  if (!transporter) return;
-
   const mailOptions = {
-    from: process.env.SMTP_FROM || process.env.GMAIL_USER || 'noreply@mansionmuse.com',
+    from: getSender(),
     to: tenant.email,
     subject: `Farewell from Mansion Muse - Account Deactivated`,
     html: `
@@ -618,10 +572,10 @@ export const sendTenantDepartureEmail = async (tenant) => {
   };
 
   try {
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ Departure email sent to ${tenant.email}`);
+    const response = await sgMail.send(mailOptions);
+    console.log(`✅ Departure email sent to ${tenant.email}. Status Code: ${response[0]?.statusCode}`);
   } catch (error) {
-    console.error('❌ Failed to send departure email:', error);
+    console.error('❌ Failed to send departure email:', error.response?.body || error);
   }
 };
 
